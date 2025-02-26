@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 
 import Places from "./components/Places.jsx";
 import { AVAILABLE_PLACES } from "./data.js";
@@ -13,15 +13,10 @@ const storedPlaces = storedIds.map((id) =>
 );
 
 function App() {
-  const [modalIsOpen, setModalIsOpen] = useState(false);
   const selectedPlace = useRef();
+  const [modalIsOpen, setModalIsOpen] = useState(false);
   const [availablePlaces, setAvailablePlaces] = useState([]);
-  const [pickedPlaces, setPickedPlaces] = useState([]);
-
-  const storedIds = JSON.parse(localStorage.getItem("selectedPlaces")) || [];
-  const storedPlaces = storedIds.map((id) =>
-    AVAILABLE_PLACES.find((place) => place.id === id)
-  );
+  const [pickedPlaces, setPickedPlaces] = useState(storedPlaces);
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition((position) => {
@@ -61,7 +56,13 @@ function App() {
     }
   }
 
-  function handleRemovePlace() {
+  /**
+   * We are using useCallback hook to avoid inifinte loop
+   * for example : in delete confirmation we are passing a function in useEffect hook, the function are also the objects in js
+   * whenever the value of dependency changes the useEffects executes. i.e. when the component is executed it changes the state when the state is changed new function object is created
+   * i.e. value is changed, when the value is changed useEffects executes this goes into the  infinte loop.
+   */
+  const handleRemovePlace = useCallback(function handleRemovePlace() {
     setPickedPlaces((prevPickedPlaces) =>
       prevPickedPlaces.filter((place) => place.id !== selectedPlace.current)
     );
@@ -70,13 +71,13 @@ function App() {
     const storedIds = JSON.parse(localStorage.getItem("selectedPlaces")) || [];
     localStorage.setItem(
       "selectedPlaces",
-      JSON.stringify(storedIds.filter((id) => id !== selectedPlace))
+      JSON.stringify(storedIds.filter((id) => id !== selectedPlace.current))
     );
-  }
+  }, []);
 
   return (
     <>
-      <Modal open={modalIsOpen}>
+      <Modal open={modalIsOpen} onClose={handleStopRemovePlace}>
         <DeleteConfirmation
           onCancel={handleStopRemovePlace}
           onConfirm={handleRemovePlace}
